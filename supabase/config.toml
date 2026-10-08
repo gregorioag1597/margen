@@ -1,0 +1,14 @@
+# Configuración local de Supabase (supabase start). Las claves que no
+# aparecen usan los valores por defecto de la CLI.
+project_id = "margen"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+
+[auth.email]
+enable_signup = true
+# Desactivada durante el MVP (decisión aprobada). Para activarla:
+# cambiar a true aquí y en el panel de Supabase > Authentication > Providers > Email.
+# El frontend ya debe manejar el caso "revisá tu correo" (fase de auth).
+enable_confirmations = false

@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño. Pocos colores: un verde de marca, neutros cálidos y
+ * tres colores de estado (saludable / bajo / negativo).
+ */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand-50: #ecf8f4;
+  --color-brand-100: #d2efe5;
+  --color-brand-500: #1f8a6d;
+  --color-brand-600: #157559;
+  --color-brand-700: #0f5c4a;
+  --color-brand-900: #083a2f;
+
+  --color-ink: #17201d;
+  --color-muted: #5f6b67;
+  --color-line: #e3e8e6;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f8f7;
+
+  --color-healthy: #16825d;
+  --color-healthy-soft: #e3f5ec;
+  --color-low: #b26b00;
+  --color-low-soft: #fdf2dd;
+  --color-negative: #c23b32;
+  --color-negative-soft: #fce8e6;
+
+  --radius-card: 1rem;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+  /* Los números importantes se alinean y no "bailan" al cambiar. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
