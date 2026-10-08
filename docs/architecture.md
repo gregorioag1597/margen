@@ -72,7 +72,8 @@ Caso de control: D = 4.200, p = 6,39 %, A = 0, m = 30 % → 4.200 ÷ 0,6361 = **
    - 8.2 ✅ Rutas con carga diferida + librerías en chunks propios (app 25 KB gz). Sin scroll horizontal (test E2E).
    - 8.3 ✅ Demo pública (`/demo`): `src/lib/demo-store.ts` en memoria, por pestaña; las funciones de `api.ts` se desvían ahí con `isDemoMode()`.
    - 8.4 ⏳ Tests pgTAP (`npm run test:db`) — requiere Docker + Supabase CLI.
-   - 8.5 ⏳ Deploy en Vercel (`vercel.json` listo: SPA rewrites + headers).
+   - 8.5 ✅ Publicado en https://margen-lake.vercel.app (repo privado github.com/gregorioag1597/margen, deploy automático en cada push a `main`).
+     Variables en Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (solo la clave pública).
 
 9. Módulo administrativo ✅ — tabla `movements` (migración 005): ingresos/egresos reales, separados de los costos planificados.
    Resumen = "Tu mes real" (movimientos) + "Tu estimación" (motor). Navegación mobile: 4 + "Más".
