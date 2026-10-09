@@ -13,6 +13,7 @@ export const componentRowSchema = z.object({
   fixed_amount: z.coerce.string().nullable(),
   label: z.string().nullable(),
   position: z.number(),
+  basis: z.enum(['batch', 'unit']).default('batch'),
 });
 export type ComponentRow = z.infer<typeof componentRowSchema>;
 
@@ -22,6 +23,8 @@ export const productRowSchema = z.object({
   category: z.string().nullable(),
   price: z.coerce.string().nullable(),
   monthly_units_estimate: z.number(),
+  /** Unidades que rinde una tanda (1 = receta por unidad). */
+  batch_yield: z.coerce.string().default('1'),
   target_margin: z.coerce.string().nullable(),
   notes: z.string().nullable(),
   archived_at: z.string().nullable(),
@@ -40,6 +43,8 @@ export const productFormSchema = z.object({
     check: (n) => n.gte(0) && n.isInteger(),
     checkMessage: 'Usá un número entero, 0 o más.',
   }),
+  /** Vacío = 1 (receta por unidad). */
+  batchYield: localeNumber({ check: (n) => n.gt(0), checkMessage: 'Tiene que ser mayor a 0.' }),
   notes: optionalText(1000),
 });
 export type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -50,6 +55,7 @@ export function toProductPayload(v: ProductFormValues) {
     category: emptyToNull(v.category),
     price: v.price.trim() === '' ? null : parseLocaleNumber(v.price)!,
     monthly_units_estimate: v.monthlyUnits.trim() === '' ? 0 : Number(parseLocaleNumber(v.monthlyUnits)),
+    batch_yield: v.batchYield.trim() === '' ? '1' : parseLocaleNumber(v.batchYield)!,
     notes: emptyToNull(v.notes),
   };
 }
@@ -74,6 +80,7 @@ export const componentFormSchema = z
     unit: z.enum(UNIT_CODES),
     label: z.string().trim().max(120),
     amount: z.string(),
+    basis: z.enum(['batch', 'unit']),
   })
   .superRefine((v, ctx) => {
     const add = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
@@ -93,13 +100,17 @@ export type ComponentFormValues = z.infer<typeof componentFormSchema>;
 
 /** Valores del formulario → columnas de product_components (respeta los checks de la base). */
 export function toComponentPayload(v: ComponentFormValues, laborRateId: string | null) {
+  const basis = v.basis;
   switch (v.kind) {
     case 'ingredient':
     case 'packaging':
-      return { kind: v.kind, ingredient_id: v.ingredientId, labor_rate_id: null, quantity: parseLocaleNumber(v.quantity)!, unit: v.unit, fixed_amount: null, label: null };
+      return { kind: v.kind, ingredient_id: v.ingredientId, labor_rate_id: null, quantity: parseLocaleNumber(v.quantity)!, unit: v.unit, fixed_amount: null, label: null, basis };
     case 'labor':
-      return { kind: v.kind, ingredient_id: null, labor_rate_id: laborRateId, quantity: parseLocaleNumber(v.quantity)!, unit: v.unit, fixed_amount: null, label: null };
+      return { kind: v.kind, ingredient_id: null, labor_rate_id: laborRateId, quantity: parseLocaleNumber(v.quantity)!, unit: v.unit, fixed_amount: null, label: null, basis };
     case 'other':
-      return { kind: v.kind, ingredient_id: null, labor_rate_id: null, quantity: null, unit: null, fixed_amount: parseLocaleNumber(v.amount)!, label: v.label.trim() };
+      return { kind: v.kind, ingredient_id: null, labor_rate_id: null, quantity: null, unit: null, fixed_amount: parseLocaleNumber(v.amount)!, label: v.label.trim(), basis };
   }
 }
+
+/** Por defecto el packaging es "por unidad" (una caja por producto); el resto, "por tanda". */
+export const defaultBasisFor = (kind: ComponentKind): 'batch' | 'unit' => (kind === 'packaging' || kind === 'other' ? 'unit' : 'batch');

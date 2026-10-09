@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { AffixInput, Field, Input, Textarea } from '@/components/ui/form';
+import { AffixInput, Field, Input, Switch, Textarea } from '@/components/ui/form';
 import { Banner, Sheet } from '@/components/ui/surfaces';
 import { dataErrorMessage, GLOSSARY } from '@/copy/messages';
 import { useCurrentBusiness } from '@/features/business/business-provider';
@@ -30,10 +30,12 @@ export function ProductInfoSheet({ product, open, onClose }: { product: ProductR
           category: product.category ?? '',
           price: numberToInput(product.price),
           monthlyUnits: String(product.monthly_units_estimate),
+          batchYield: Number(product.batch_yield) === 1 ? '' : numberToInput(product.batch_yield),
           notes: product.notes ?? '',
         }
-      : { name: '', category: '', price: '', monthlyUnits: '', notes: '' },
+      : { name: '', category: '', price: '', monthlyUnits: '', batchYield: '', notes: '' },
   });
+  const [byBatch, setByBatch] = useState(Boolean(product && Number(product.batch_yield) !== 1));
   const errors = form.formState.errors;
   const refresh = () => invalidateBusinessData(queryClient, business.id);
 
@@ -92,6 +94,23 @@ export function ProductInfoSheet({ product, open, onClose }: { product: ProductR
           </Field>
         </div>
         {!isNew && product.price && <p className="text-[13px] text-muted">Si cambiás el precio, el anterior queda guardado en el historial.</p>}
+
+        <div className="space-y-3 rounded-xl border border-line p-3">
+          <Switch
+            checked={byBatch}
+            onChange={(on) => { setByBatch(on); if (!on) form.setValue('batchYield', ''); }}
+            label="Lo hago por tanda"
+            description="Ej.: con una receta salen 48 alfajores."
+          />
+          {byBatch && (
+            <Field label="¿Cuántas unidades rinde la tanda?" hint={GLOSSARY.batchYield} error={errors.batchYield?.message}>
+              {(id, d) => <AffixInput id={id} aria-describedby={d} inputMode="decimal" suffix="u." placeholder="48" aria-invalid={!!errors.batchYield} {...form.register('batchYield')} />}
+            </Field>
+          )}
+          {!isNew && byBatch && Number(product.batch_yield) === 1 && (
+            <Banner tone="warning">Después de guardar, revisá las cantidades de "Qué lleva": ahora son para toda la tanda.</Banner>
+          )}
+        </div>
         <Field label="Notas (opcional)" error={errors.notes?.message}>
           {(id, d) => <Textarea id={id} aria-describedby={d} rows={2} {...form.register('notes')} />}
         </Field>

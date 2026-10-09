@@ -79,4 +79,11 @@ Caso de control: D = 4.200, p = 6,39 %, A = 0, m = 30 % → 4.200 ÷ 0,6361 = **
    Resumen = "Tu mes real" (movimientos) + "Tu estimación" (motor). Navegación mobile: 4 + "Más".
    Los costos fijos NO generan egresos automáticos; vincular plan ↔ real queda para más adelante.
 
+10. Fase 10 ✅ (migración 006) — ideas tomadas de ERPNext, InvenTree, Firefly III, Actual, Midday y ezbookkeeping (solo ideas, no código):
+    - Recetas por tanda: `products.batch_yield` + `product_components.basis` (batch/unit). Por unidad = Σ(por tanda) ÷ rinde + Σ(por unidad).
+    - Merma por insumo: `ingredients.waste_pct`; costo usable = costo ÷ (1 − merma). Impacto y simulador la incluyen.
+    - Pago de costo fijo: `movements.fixed_cost_id` + `fixedCostsPlanVsActual()`; nada automático.
+    - Compra de insumo: `movements.ingredient_*` + `priceForPresentation()` → ofrece actualizar el insumo con la pantalla de impacto.
+    - Exportar CSV para Excel es-AR (`;`, coma decimal, BOM, anti-fórmulas) y app instalable (vite-plugin-pwa, íconos en `public/`, `scripts/generate-icons.ts`).
+
 Antes de cada fase: resumen de lo que se construye y archivos principales; se espera aprobación.

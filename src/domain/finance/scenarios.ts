@@ -1,5 +1,5 @@
 import { buildBusinessModel, type BusinessModel, type ProductEconomics } from './business-model';
-import { calculateIngredientUnitCost } from './components';
+import { calculateIngredientUsableCost } from './components';
 import { dec, ONE, safeDivide, ZERO, type Dec, type DecimalInput } from './money';
 import { calculateRecommendedPrice, roundRecommendedPrice } from './pricing';
 import { fail, ok, type Result } from './result';
@@ -11,7 +11,7 @@ import type { BusinessSnapshot, Ingredient, UnitCode } from './types';
  * Porcentajes como fracción: 0.10 = +10 %, -0.05 = −5 %.
  */
 export type ScenarioChange =
-  | { type: 'ingredient_price'; ingredientId: string; purchasePrice: DecimalInput; purchaseQty?: DecimalInput; purchaseUnit?: UnitCode }
+  | { type: 'ingredient_price'; ingredientId: string; purchasePrice: DecimalInput; purchaseQty?: DecimalInput; purchaseUnit?: UnitCode; wastePct?: DecimalInput }
   | { type: 'ingredient_price_pct'; ingredientIds: 'all' | string[]; pct: DecimalInput }
   | { type: 'product_price'; productId: string; price: DecimalInput }
   | { type: 'product_price_pct'; productIds: 'all' | string[]; pct: DecimalInput }
@@ -39,6 +39,7 @@ export function applyScenarioChanges(snapshot: BusinessSnapshot, changes: readon
                   purchasePrice: change.purchasePrice,
                   purchaseQty: change.purchaseQty ?? i.purchaseQty,
                   purchaseUnit: change.purchaseUnit ?? i.purchaseUnit,
+                  wastePct: change.wastePct ?? i.wastePct,
                 }
               : i,
           ),
@@ -199,7 +200,7 @@ export interface IngredientPriceImpact {
 export function calculateIngredientPriceImpact(
   snapshot: BusinessSnapshot,
   ingredientId: string,
-  change: { purchasePrice: DecimalInput; purchaseQty?: DecimalInput; purchaseUnit?: UnitCode },
+  change: { purchasePrice: DecimalInput; purchaseQty?: DecimalInput; purchaseUnit?: UnitCode; wastePct?: DecimalInput },
 ): Result<IngredientPriceImpact> {
   const ingredient = snapshot.ingredients.find((i) => i.id === ingredientId);
   if (!ingredient) return fail('MISSING_REFERENCE', ingredientId);
@@ -209,10 +210,12 @@ export function calculateIngredientPriceImpact(
     purchasePrice: change.purchasePrice,
     purchaseQty: change.purchaseQty ?? ingredient.purchaseQty,
     purchaseUnit: change.purchaseUnit ?? ingredient.purchaseUnit,
+    wastePct: change.wastePct ?? ingredient.wastePct,
   };
-  const unitBefore = calculateIngredientUnitCost(ingredient);
+  // Costo usable (con merma): un cambio de merma también es un cambio de costo.
+  const unitBefore = calculateIngredientUsableCost(ingredient);
   if (!unitBefore.ok) return unitBefore;
-  const unitAfter = calculateIngredientUnitCost(updated);
+  const unitAfter = calculateIngredientUsableCost(updated);
   if (!unitAfter.ok) return unitAfter;
 
   const scenario = calculateScenarioImpact(snapshot, [{ type: 'ingredient_price', ingredientId, ...change }]);

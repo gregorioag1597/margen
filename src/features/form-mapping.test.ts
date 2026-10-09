@@ -6,12 +6,12 @@ const errorsOf = (r: { success: boolean; error?: { issues: { path: PropertyKey[]
   r.success ? [] : r.error!.issues.map((i) => i.path.join('.'));
 
 describe('formulario de insumo → base de datos', () => {
-  const base = { name: 'Chocolate', supplier: '', purchaseUnit: 'kg' as const, purchaseQty: '1', purchasePrice: '18.000', notes: '' };
+  const base = { name: 'Chocolate', supplier: '', purchaseUnit: 'kg' as const, purchaseQty: '1', purchasePrice: '18.000', wastePercent: '', notes: '' };
 
   it('convierte "18.000" en 18000 y vacíos en null', () => {
     const parsed = ingredientFormSchema.parse(base);
     expect(toIngredientPayload(parsed)).toEqual({
-      name: 'Chocolate', supplier: null, purchase_unit: 'kg', purchase_qty: '1', purchase_price: '18000', notes: null,
+      name: 'Chocolate', supplier: null, purchase_unit: 'kg', purchase_qty: '1', purchase_price: '18000', waste_pct: '0', notes: null,
     });
   });
 

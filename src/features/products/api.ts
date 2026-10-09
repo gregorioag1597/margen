@@ -5,8 +5,8 @@ import { supabase, unwrapResponse } from '@/lib/supabase';
 import { productRowSchema, type ProductRow, type toComponentPayload, type toProductPayload } from './schemas';
 
 const COLUMNS =
-  'id, name, category, price, monthly_units_estimate, target_margin, notes, archived_at, price_updated_at, ' +
-  'product_components(id, kind, ingredient_id, labor_rate_id, quantity, unit, fixed_amount, label, position)';
+  'id, name, category, price, monthly_units_estimate, batch_yield, target_margin, notes, archived_at, price_updated_at, ' +
+  'product_components(id, kind, ingredient_id, labor_rate_id, quantity, unit, fixed_amount, label, position, basis)';
 
 export async function listProducts(businessId: string): Promise<ProductRow[]> {
   if (isDemoMode()) return z.array(productRowSchema).parse(await demoApi.listProducts());

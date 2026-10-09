@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Plus, Receipt, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Download, Plus, Receipt, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,10 @@ import { currentMonth, filterMovements, monthRange, summarizeMovements } from '@
 import { formatMoney } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
+import { listProductOptions } from '@/features/costs/api';
+import { downloadTextFile } from '@/lib/export-csv';
 import { listMovements, toMovement } from './api';
+import { exportFileName, movementsToCsv } from './export';
 import { MovementSheet } from './movement-sheet';
 import { categoriesFor, categoryLabel, EXPENSE_CATEGORIES, INCOME_CATEGORIES, paymentLabel, type MovementKind, type MovementRow } from './schemas';
 
@@ -34,6 +37,7 @@ export function MovementsPage() {
   };
 
   const query = useQuery({ queryKey: queryKeys.movements(business.id, month), queryFn: () => listMovements(business.id, month) });
+  const products = useQuery({ queryKey: queryKeys.productOptions(business.id), queryFn: () => listProductOptions(business.id) });
 
   const rows = query.data ?? [];
   const filtered = useMemo(() => {
@@ -70,6 +74,19 @@ export function MovementsPage() {
       <div className="mb-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <MonthPicker value={month} onChange={(m) => { setDay(''); update({ mes: m }); }} />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              downloadTextFile(
+                exportFileName(business.name, month),
+                movementsToCsv(filtered, new Map((products.data ?? []).map((p) => [p.id, p.name]))),
+              )
+            }
+          >
+            <Download /> Exportar
+          </Button>
         </div>
         <Segmented<Tab>
           ariaLabel="Tipo de movimiento"

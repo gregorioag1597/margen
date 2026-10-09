@@ -6,6 +6,7 @@ import { useCurrentBusiness } from '@/features/business/business-provider';
 import { exitDemoMode, isDemoMode } from '@/lib/demo-mode';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
+import { OfflineBanner } from './offline-banner';
 
 /** En mobile la barra inferior muestra estos 4 + "Más" con el resto. */
 const PRIMARY = [
@@ -69,6 +70,8 @@ export function AppLayout() {
             </NavLink>
           </div>
         </header>
+
+        <OfflineBanner />
 
         {isDemoMode() && (
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-brand-900 px-4 py-2 text-center text-[13px] text-white">

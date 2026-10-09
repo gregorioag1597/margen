@@ -7,31 +7,31 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { AffixInput, Field, Input, Segmented, Select } from '@/components/ui/form';
 import { Banner, Card, Sheet } from '@/components/ui/surfaces';
-import { dataErrorMessage } from '@/copy/messages';
+import { dataErrorMessage, GLOSSARY } from '@/copy/messages';
 import { useCurrentBusiness } from '@/features/business/business-provider';
 import {
   buildCostLookup,
   calculateComponentCost,
+  dec,
   unitFamily,
   type BusinessSnapshot,
   type ProductComponent,
-  type UnitCode,
   type UnitFamily,
 } from '@/domain/finance';
 import type { IngredientRow } from '@/features/ingredients/schemas';
-import { BASE_UNIT_BY_UNIT, formatMoney, UNIT_LABELS } from '@/lib/format';
+import { BASE_UNIT_BY_UNIT, formatMoney, formatNumber, UNIT_LABELS, UNITS_BY_FAMILY } from '@/lib/format';
 import { numberToInput, parseLocaleNumber } from '@/lib/number-input';
 import { invalidateBusinessData } from '@/lib/query-keys';
 import { deleteComponent, saveComponent } from './api';
-import { componentFormSchema, toComponentPayload, type ComponentFormValues, type ComponentKind, type ComponentRow } from './schemas';
+import {
+  componentFormSchema,
+  defaultBasisFor,
+  toComponentPayload,
+  type ComponentFormValues,
+  type ComponentKind,
+  type ComponentRow,
+} from './schemas';
 
-const UNITS_BY_FAMILY: Record<UnitFamily, UnitCode[]> = {
-  mass: ['g', 'kg'],
-  volume: ['ml', 'l'],
-  count: ['unit'],
-  length: ['cm', 'm'],
-  time: ['min', 'h'],
-};
 
 const KIND_OPTIONS: { value: ComponentKind; label: string }[] = [
   { value: 'ingredient', label: 'Insumo' },
@@ -47,11 +47,14 @@ interface Props {
   ingredients: IngredientRow[];
   laborRateId: string | null;
   snapshot: BusinessSnapshot;
+  /** Unidades que rinde la tanda del producto (1 = receta por unidad). */
+  batchYield: string;
   open: boolean;
   onClose: () => void;
 }
 
-export function ComponentSheet({ productId, component, nextPosition, ingredients, laborRateId, snapshot, open, onClose }: Props) {
+export function ComponentSheet({ productId, component, nextPosition, ingredients, laborRateId, snapshot, batchYield, open, onClose }: Props) {
+  const byBatch = Number(batchYield) !== 1;
   const business = useCurrentBusiness();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -66,8 +69,9 @@ export function ComponentSheet({ productId, component, nextPosition, ingredients
           unit: component.unit ?? 'g',
           label: component.label ?? '',
           amount: numberToInput(component.fixed_amount),
+          basis: component.basis,
         }
-      : { kind: 'ingredient', ingredientId: '', quantity: '', unit: 'g', label: '', amount: '' },
+      : { kind: 'ingredient', ingredientId: '', quantity: '', unit: 'g', label: '', amount: '', basis: defaultBasisFor('ingredient') },
   });
   const values = useWatch({ control: form.control });
   const errors = form.formState.errors;
@@ -78,7 +82,7 @@ export function ComponentSheet({ productId, component, nextPosition, ingredients
   // Insumos disponibles: activos + el que ya usa este componente (aunque esté archivado).
   const options = ingredients.filter((i) => !i.archived_at || i.id === component?.ingredient_id);
 
-  const preview = previewCost(values as ComponentFormValues, laborRateId, snapshot);
+  const preview = previewCost(values as ComponentFormValues, laborRateId, snapshot, batchYield);
 
   const done = async () => { await invalidateBusinessData(queryClient, business.id); onClose(); };
   const save = useMutation({
@@ -117,6 +121,7 @@ export function ComponentSheet({ productId, component, nextPosition, ingredients
                 field.onChange(k);
                 if (k === 'labor') form.setValue('unit', 'min');
                 else form.setValue('unit', selectedIngredient ? BASE_UNIT_BY_UNIT[selectedIngredient.purchase_unit] : 'g');
+                if (!component) form.setValue('basis', defaultBasisFor(k));
               }}
             />
           )}
@@ -173,15 +178,40 @@ export function ComponentSheet({ productId, component, nextPosition, ingredients
             <Field label="Descripción" error={errors.label?.message}>
               {(id, d) => <Input id={id} aria-describedby={d} placeholder="Ej.: Envío al local" aria-invalid={!!errors.label} {...form.register('label')} />}
             </Field>
-            <Field label="Costo por unidad de producto" error={errors.amount?.message}>
+            <Field label="Costo" error={errors.amount?.message}>
               {(id, d) => <AffixInput id={id} aria-describedby={d} prefix="$" aria-invalid={!!errors.amount} {...form.register('amount')} />}
             </Field>
           </>
         )}
 
+        {byBatch && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">¿Esa cantidad es para…?</p>
+            <Controller
+              control={form.control}
+              name="basis"
+              render={({ field }) => (
+                <Segmented<'batch' | 'unit'>
+                  ariaLabel="La cantidad es para"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: 'batch', label: `Toda la tanda (${formatNumber(batchYield)} u.)` },
+                    { value: 'unit', label: 'Cada unidad' },
+                  ]}
+                />
+              )}
+            />
+            <p className="text-[12px] text-muted">{GLOSSARY.basis}</p>
+          </div>
+        )}
+
         <Card className="bg-brand-50/60 p-4" aria-live="polite">
-          <p className="text-[13px] text-muted">Le suma al producto</p>
-          <p className="mt-0.5 text-xl font-semibold tabular">{preview ? formatMoney(preview, business.currency) : '—'}</p>
+          <p className="text-[13px] text-muted">Le suma a cada unidad</p>
+          <p className="mt-0.5 text-xl font-semibold tabular">{preview ? formatMoney(preview.cost, business.currency) : '—'}</p>
+          {preview && preview.basis === 'batch' && byBatch && (
+            <p className="text-[13px] text-muted">En toda la tanda: {formatMoney(preview.amount, business.currency)}</p>
+          )}
         </Card>
 
         {component && (
@@ -197,18 +227,19 @@ export function ComponentSheet({ productId, component, nextPosition, ingredients
 }
 
 /** Costo del componente con los datos del formulario, usando el motor. */
-function previewCost(v: Partial<ComponentFormValues>, laborRateId: string | null, snapshot: BusinessSnapshot) {
+function previewCost(v: Partial<ComponentFormValues>, laborRateId: string | null, snapshot: BusinessSnapshot, batchYield: string) {
   const qty = parseLocaleNumber(v.quantity ?? '');
+  const basis = v.basis ?? 'batch';
   let component: ProductComponent | null = null;
   if ((v.kind === 'ingredient' || v.kind === 'packaging') && v.ingredientId && qty && v.unit) {
-    component = { id: 'preview', kind: v.kind, ingredientId: v.ingredientId, quantity: qty, unit: v.unit };
+    component = { id: 'preview', kind: v.kind, ingredientId: v.ingredientId, quantity: qty, unit: v.unit, basis };
   } else if (v.kind === 'labor' && laborRateId && qty && v.unit) {
-    component = { id: 'preview', kind: 'labor', laborRateId, quantity: qty, unit: v.unit };
+    component = { id: 'preview', kind: 'labor', laborRateId, quantity: qty, unit: v.unit, basis };
   } else if (v.kind === 'other') {
     const amount = parseLocaleNumber(v.amount ?? '');
-    if (amount) component = { id: 'preview', kind: 'other', label: v.label ?? '', amount };
+    if (amount) component = { id: 'preview', kind: 'other', label: v.label ?? '', amount, basis };
   }
   if (!component) return null;
-  const result = calculateComponentCost(component, buildCostLookup(snapshot.ingredients, snapshot.laborRates));
-  return result.ok ? result.value.cost : null;
+  const result = calculateComponentCost(component, buildCostLookup(snapshot.ingredients, snapshot.laborRates), dec(batchYield));
+  return result.ok ? result.value : null;
 }

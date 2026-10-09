@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/form';
 import { Banner, Badge, Card, EmptyState, ListSkeleton, MobileAction, PageHeader } from '@/components/ui/surfaces';
 import { dataErrorMessage, GLOSSARY } from '@/copy/messages';
 import { useCurrentBusiness } from '@/features/business/business-provider';
-import { formatDate, formatNumber, formatUnitCost, UNIT_LABELS, formatMoney } from '@/lib/format';
+import { formatDate, formatNumber, formatPercent, formatUnitCost, UNIT_LABELS, formatMoney } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
 import { listIngredients, listIngredientUsage } from './api';
 import { IngredientSheet } from './ingredient-sheet';
@@ -93,8 +93,9 @@ export function IngredientsPage() {
 }
 
 function IngredientCard({ ingredient, usedIn, currency, onClick }: { ingredient: IngredientRow; usedIn: number; currency: string; onClick: () => void }) {
-  const view = getUnitCostView(ingredient.purchase_qty, ingredient.purchase_unit, ingredient.purchase_price);
+  const view = getUnitCostView(ingredient.purchase_qty, ingredient.purchase_unit, ingredient.purchase_price, ingredient.waste_pct);
   const unit = UNIT_LABELS[ingredient.purchase_unit];
+  const shown = view?.usablePerBase ?? view?.perBase;
 
   return (
     <Card className="transition-colors hover:border-brand-500/40">
@@ -114,8 +115,11 @@ function IngredientCard({ ingredient, usedIn, currency, onClick }: { ingredient:
           </p>
         </div>
         <div className="text-right" title={GLOSSARY.unitCost}>
-          <p className="tabular font-semibold">{view ? formatUnitCost(view.perBase, currency) : '—'}</p>
-          <p className="text-[12px] text-muted">por {view ? UNIT_LABELS[view.baseUnit].singular : unit.singular}</p>
+          <p className="tabular font-semibold">{shown ? formatUnitCost(shown, currency) : '—'}</p>
+          <p className="text-[12px] text-muted">
+            por {view ? UNIT_LABELS[view.baseUnit].singular : unit.singular}
+            {view?.usablePerBase && ` usable · merma ${formatPercent(view.waste, 0)}`}
+          </p>
         </div>
         <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
       </button>

@@ -7,6 +7,7 @@ export * from './config';
 export * from './demo-data';
 export * from './money';
 export * from './movements';
+export * from './plan-vs-actual';
 export * from './pricing';
 export * from './result';
 export * from './scenarios';

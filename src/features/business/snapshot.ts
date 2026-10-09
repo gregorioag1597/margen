@@ -17,14 +17,16 @@ function toComponent(row: ComponentRow): ProductComponent | null {
     case 'ingredient':
     case 'packaging':
       return row.ingredient_id && row.quantity !== null && row.unit
-        ? { id: row.id, kind: row.kind, ingredientId: row.ingredient_id, quantity: row.quantity, unit: row.unit }
+        ? { id: row.id, kind: row.kind, ingredientId: row.ingredient_id, quantity: row.quantity, unit: row.unit, basis: row.basis }
         : null;
     case 'labor':
       return row.labor_rate_id && row.quantity !== null && row.unit
-        ? { id: row.id, kind: 'labor', laborRateId: row.labor_rate_id, quantity: row.quantity, unit: row.unit }
+        ? { id: row.id, kind: 'labor', laborRateId: row.labor_rate_id, quantity: row.quantity, unit: row.unit, basis: row.basis }
         : null;
     case 'other':
-      return row.fixed_amount !== null ? { id: row.id, kind: 'other', label: row.label ?? 'Otro', amount: row.fixed_amount } : null;
+      return row.fixed_amount !== null
+        ? { id: row.id, kind: 'other', label: row.label ?? 'Otro', amount: row.fixed_amount, basis: row.basis }
+        : null;
   }
 }
 
@@ -61,6 +63,7 @@ export function toBusinessSnapshot(rows: SnapshotRows): BusinessSnapshot {
       purchaseUnit: i.purchase_unit,
       purchaseQty: i.purchase_qty,
       purchasePrice: i.purchase_price,
+      wastePct: i.waste_pct,
     })),
     laborRates: rows.laborRates.map((r) => ({ id: r.id, name: r.name, hourlyRate: r.hourly_rate })),
     products: rows.products
@@ -72,6 +75,7 @@ export function toBusinessSnapshot(rows: SnapshotRows): BusinessSnapshot {
         price: p.price,
         monthlyUnits: p.monthly_units_estimate,
         targetMargin: p.target_margin,
+        batchYield: p.batch_yield,
         components: [...p.product_components]
           .sort((a, b) => a.position - b.position)
           .map(toComponent)

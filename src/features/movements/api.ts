@@ -5,7 +5,9 @@ import { demoApi } from '@/lib/demo-store';
 import { supabase, unwrapResponse } from '@/lib/supabase';
 import { movementRowSchema, type MovementPayload, type MovementRow } from './schemas';
 
-const COLUMNS = 'id, kind, occurred_on, concept, category, amount, product_id, payment_method, supplier, notes, created_at';
+const COLUMNS =
+  'id, kind, occurred_on, concept, category, amount, product_id, payment_method, supplier, notes, created_at, ' +
+  'fixed_cost_id, ingredient_id, ingredient_qty, ingredient_unit';
 
 /** Movimientos de un mes ('YYYY-MM'), del más nuevo al más viejo. */
 export async function listMovements(businessId: string, month: string): Promise<MovementRow[]> {

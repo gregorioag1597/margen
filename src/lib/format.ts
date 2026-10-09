@@ -1,5 +1,5 @@
 import { dec, type Dec } from '@/domain/finance';
-import type { UnitCode } from '@/domain/finance';
+import type { UnitCode, UnitFamily } from '@/domain/finance';
 
 type Num = Dec | number | string | null | undefined;
 
@@ -70,6 +70,15 @@ export const UNIT_LABELS: Record<UnitCode, { short: string; singular: string; pl
 
 /** Unidades que se ofrecen al comprar un insumo (spec: kg, g, litros, ml, unidades, metros, horas). */
 export const PURCHASE_UNITS: UnitCode[] = ['kg', 'g', 'l', 'ml', 'unit', 'm', 'h'];
+
+/** Unidades que se pueden elegir según la familia del insumo (nunca se mezclan familias). */
+export const UNITS_BY_FAMILY: Record<UnitFamily, UnitCode[]> = {
+  mass: ['g', 'kg'],
+  volume: ['ml', 'l'],
+  count: ['unit'],
+  length: ['cm', 'm'],
+  time: ['min', 'h'],
+};
 
 /** Unidad base en la que el motor expresa el costo unitario. */
 export const BASE_UNIT_BY_UNIT: Record<UnitCode, UnitCode> = {

@@ -15,23 +15,23 @@ const business: Business = {
 const rows: SnapshotRows = {
   business,
   ingredients: [
-    { id: 'choc', name: 'Chocolate', supplier: null, purchase_unit: 'kg', purchase_qty: '1', purchase_price: '18000', price_updated_at: '2026-10-01T00:00:00Z', notes: null, archived_at: null },
-    { id: 'caja', name: 'Caja', supplier: null, purchase_unit: 'unit', purchase_qty: '100', purchase_price: '25000', price_updated_at: '2026-10-01T00:00:00Z', notes: null, archived_at: '2026-10-05T00:00:00Z' },
+    { id: 'choc', name: 'Chocolate', supplier: null, purchase_unit: 'kg', purchase_qty: '1', purchase_price: '18000', waste_pct: '0', price_updated_at: '2026-10-01T00:00:00Z', notes: null, archived_at: null },
+    { id: 'caja', name: 'Caja', supplier: null, purchase_unit: 'unit', purchase_qty: '100', purchase_price: '25000', waste_pct: '0', price_updated_at: '2026-10-01T00:00:00Z', notes: null, archived_at: '2026-10-05T00:00:00Z' },
   ],
   laborRates: [{ id: 'mo', name: 'Mano de obra', hourly_rate: '6000', is_default: true }],
   products: [
     {
-      id: 'alfajor', name: 'Alfajor', category: null, price: '6000', monthly_units_estimate: 100, target_margin: null,
+      id: 'alfajor', name: 'Alfajor', category: null, price: '6000', monthly_units_estimate: 100, batch_yield: '1', target_margin: null,
       notes: null, archived_at: null, price_updated_at: null,
       product_components: [
-        { id: 'c2', kind: 'labor', ingredient_id: null, labor_rate_id: 'mo', quantity: '12', unit: 'min', fixed_amount: null, label: null, position: 2 },
-        { id: 'c1', kind: 'ingredient', ingredient_id: 'choc', labor_rate_id: null, quantity: '80', unit: 'g', fixed_amount: null, label: null, position: 1 },
-        { id: 'c3', kind: 'packaging', ingredient_id: 'caja', labor_rate_id: null, quantity: '1', unit: 'unit', fixed_amount: null, label: null, position: 3 },
-        { id: 'c4', kind: 'other', ingredient_id: null, labor_rate_id: null, quantity: null, unit: null, fixed_amount: '10', label: 'Sticker', position: 4 },
+        { id: 'c2', kind: 'labor', ingredient_id: null, labor_rate_id: 'mo', quantity: '12', unit: 'min', fixed_amount: null, label: null, position: 2, basis: 'batch' },
+        { id: 'c1', kind: 'ingredient', ingredient_id: 'choc', labor_rate_id: null, quantity: '80', unit: 'g', fixed_amount: null, label: null, position: 1, basis: 'batch' },
+        { id: 'c3', kind: 'packaging', ingredient_id: 'caja', labor_rate_id: null, quantity: '1', unit: 'unit', fixed_amount: null, label: null, position: 3, basis: 'batch' },
+        { id: 'c4', kind: 'other', ingredient_id: null, labor_rate_id: null, quantity: null, unit: null, fixed_amount: '10', label: 'Sticker', position: 4, basis: 'batch' },
       ],
     },
     {
-      id: 'viejo', name: 'Producto archivado', category: null, price: '100', monthly_units_estimate: 50, target_margin: null,
+      id: 'viejo', name: 'Producto archivado', category: null, price: '100', monthly_units_estimate: 50, batch_yield: '1', target_margin: null,
       notes: null, archived_at: '2026-01-01T00:00:00Z', price_updated_at: null, product_components: [],
     },
   ],
@@ -96,28 +96,28 @@ describe('filas de Supabase → motor', () => {
 
 describe('formularios de producto y componente', () => {
   it('producto sin precio y con ventas "400"', () => {
-    const v = productFormSchema.parse({ name: 'Brownie', category: '', price: '', monthlyUnits: '400', notes: '' });
-    expect(toProductPayload(v)).toEqual({ name: 'Brownie', category: null, price: null, monthly_units_estimate: 400, notes: null });
+    const v = productFormSchema.parse({ name: 'Brownie', category: '', price: '', monthlyUnits: '400', batchYield: '', notes: '' });
+    expect(toProductPayload(v)).toEqual({ name: 'Brownie', category: null, price: null, monthly_units_estimate: 400, batch_yield: '1', notes: null });
   });
 
   it('ventas con decimales no se aceptan', () => {
-    expect(productFormSchema.safeParse({ name: 'X', category: '', price: '', monthlyUnits: '10,5', notes: '' }).success).toBe(false);
+    expect(productFormSchema.safeParse({ name: 'X', category: '', price: '', monthlyUnits: '10,5', batchYield: '', notes: '' }).success).toBe(false);
   });
 
   it('componente insumo respeta los checks de la base', () => {
-    const v = componentFormSchema.parse({ kind: 'ingredient', ingredientId: 'choc', quantity: '0,08', unit: 'kg', label: '', amount: '' });
+    const v = componentFormSchema.parse({ kind: 'ingredient', ingredientId: 'choc', quantity: '0,08', unit: 'kg', label: '', amount: '', basis: 'batch' });
     expect(toComponentPayload(v, 'mo')).toEqual({
-      kind: 'ingredient', ingredient_id: 'choc', labor_rate_id: null, quantity: '0.08', unit: 'kg', fixed_amount: null, label: null,
+      kind: 'ingredient', ingredient_id: 'choc', labor_rate_id: null, quantity: '0.08', unit: 'kg', fixed_amount: null, label: null, basis: 'batch',
     });
   });
 
   it('componente de mano de obra usa la tarifa general', () => {
-    const v = componentFormSchema.parse({ kind: 'labor', ingredientId: '', quantity: '8', unit: 'min', label: '', amount: '' });
+    const v = componentFormSchema.parse({ kind: 'labor', ingredientId: '', quantity: '8', unit: 'min', label: '', amount: '', basis: 'batch' });
     expect(toComponentPayload(v, 'mo')).toMatchObject({ kind: 'labor', labor_rate_id: 'mo', ingredient_id: null, quantity: '8' });
   });
 
   it('componente "otro" necesita descripción y monto', () => {
-    const r = componentFormSchema.safeParse({ kind: 'other', ingredientId: '', quantity: '', unit: 'g', label: '', amount: '' });
+    const r = componentFormSchema.safeParse({ kind: 'other', ingredientId: '', quantity: '', unit: 'g', label: '', amount: '', basis: 'unit' });
     expect(r.success).toBe(false);
   });
 });

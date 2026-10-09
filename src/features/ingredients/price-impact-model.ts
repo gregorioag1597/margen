@@ -6,7 +6,7 @@ import {
   type IngredientPriceImpact,
   type UnitCode,
 } from '@/domain/finance';
-import { parseLocaleNumber } from '@/lib/number-input';
+import { parseLocaleNumber, percentInputToFraction } from '@/lib/number-input';
 
 export type ImpactDirection = 'up' | 'down' | 'none';
 
@@ -30,16 +30,24 @@ export interface ImpactView {
 export function previewIngredientImpact(
   snapshot: BusinessSnapshot,
   ingredientId: string,
-  form: { purchaseQty: string; purchaseUnit: UnitCode; purchasePrice: string },
+  form: { purchaseQty: string; purchaseUnit: UnitCode; purchasePrice: string; wastePercent?: string },
 ): ImpactView | null {
   const purchasePrice = parseLocaleNumber(form.purchasePrice);
   const purchaseQty = parseLocaleNumber(form.purchaseQty);
   if (purchasePrice === null || purchaseQty === null) return null;
+  // Merma escrita en % ("20"); vacío = 0; inválida = no se puede previsualizar.
+  let wastePct: string | undefined;
+  if (form.wastePercent !== undefined) {
+    const w = form.wastePercent.trim() === '' ? '0' : percentInputToFraction(form.wastePercent);
+    if (w === null) return null;
+    wastePct = w;
+  }
 
   const result = calculateIngredientPriceImpact(snapshot, ingredientId, {
     purchasePrice,
     purchaseQty,
     purchaseUnit: form.purchaseUnit,
+    ...(wastePct !== undefined && { wastePct }),
   });
   if (!result.ok) return null;
   const impact = result.value;

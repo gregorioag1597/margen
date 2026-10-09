@@ -6,7 +6,7 @@ import { ingredientRowSchema, UNIT_CODES, type IngredientRow, type toIngredientP
 
 // En modo demo cada función usa la base en memoria (src/lib/demo-store.ts).
 
-const COLUMNS = 'id, name, supplier, purchase_unit, purchase_qty, purchase_price, price_updated_at, notes, archived_at';
+const COLUMNS = 'id, name, supplier, purchase_unit, purchase_qty, purchase_price, waste_pct, price_updated_at, notes, archived_at';
 
 type Payload = ReturnType<typeof toIngredientPayload>;
 
@@ -45,6 +45,15 @@ export async function createIngredient(businessId: string, payload: Payload): Pr
 export async function updateIngredient(id: string, payload: Payload): Promise<void> {
   if (isDemoMode()) return demoApi.updateIngredient(id, payload);
   unwrapResponse(await supabase.from('ingredients').update(payload).eq('id', id).select('id'));
+}
+
+/** Solo el precio/presentación (desde una compra registrada). El historial se guarda solo. */
+export async function updateIngredientPrice(
+  id: string,
+  price: { purchase_price: string; purchase_qty: string; purchase_unit: IngredientRow['purchase_unit'] },
+): Promise<void> {
+  if (isDemoMode()) return demoApi.updateIngredient(id, price);
+  unwrapResponse(await supabase.from('ingredients').update(price).eq('id', id).select('id'));
 }
 
 export async function setIngredientArchived(id: string, archived: boolean): Promise<void> {

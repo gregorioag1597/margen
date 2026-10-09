@@ -22,6 +22,11 @@ export const GLOSSARY = {
     'El precio que te deja el margen objetivo después de pagar todo: insumos, mano de obra, comisiones y tu parte de costos fijos.',
   markupVsMargin: 'Ojo: sumarle un 30 % al costo no te deja un 30 % de margen. Por eso calculamos el precio sobre el margen.',
   monthlyUnits: 'Cuántas unidades vendés en un mes normal. Se usa para repartir los costos fijos.',
+  waste:
+    'Lo que se pierde al limpiar, cortar o cocinar. Ej.: de 1 kg de frutillas te quedan 800 g limpias → 20 %. Tus productos usan el costo de lo aprovechable.',
+  batchYield:
+    'Si hacés el producto por tanda, poné cuántas unidades salen. Las cantidades de la receta se cargan para toda la tanda y la app divide sola.',
+  basis: '"Toda la tanda" se divide por el rinde. "Cada unidad" es lo que lleva cada producto, como su caja o etiqueta.',
 } as const;
 
 export const MARGIN_STATUS_LABEL: Record<MarginStatus, string> = {

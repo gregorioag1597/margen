@@ -50,17 +50,17 @@ function seedMovements(): MovementRow[] {
   type Seed = [monthOffset: number, day: number, kind: MovementRow['kind'], concept: string, category: string, amount: string, extra?: Partial<MovementRow>];
   const seeds: Seed[] = [
     // Mes actual
-    [0, 1, 'expense', 'Alquiler del local', 'rent', '450000'],
+    [0, 1, 'expense', 'Alquiler del local', 'rent', '450000', { fixed_cost_id: 'alquiler' }],
     [0, 2, 'income', 'Ventas de mostrador', 'sale', '650000', { payment_method: 'cash' }],
-    [0, 3, 'expense', 'Compra de chocolate', 'raw_materials', '180000', { supplier: 'Distribuidora Sur' }],
+    [0, 3, 'expense', 'Compra de chocolate', 'raw_materials', '180000', { supplier: 'Distribuidora Sur', ingredient_id: 'choc', ingredient_qty: '10', ingredient_unit: 'kg' }],
     [0, 4, 'income', 'Ventas online', 'sale', '820000', { payment_method: 'mercado_pago', product_id: 'alfajor' }],
     [0, 5, 'expense', 'Harina, azúcar y manteca', 'raw_materials', '96000'],
     [0, 5, 'expense', 'Cajas y etiquetas', 'packaging', '60000', { supplier: 'Packaging Express' }],
     [0, 6, 'income', 'Pedido de tortas para evento', 'sale', '256000', { payment_method: 'transfer', product_id: 'torta' }],
-    [0, 7, 'expense', 'Publicidad en redes', 'advertising', '80000'],
+    [0, 7, 'expense', 'Publicidad en redes', 'advertising', '80000', { fixed_cost_id: 'publicidad' }],
     [0, 8, 'income', 'Taller de pastelería', 'service', '120000', { payment_method: 'transfer' }],
     [0, 8, 'expense', 'Ingresos Brutos', 'taxes', '52000'],
-    [0, 8, 'expense', 'Internet', 'utilities', '25000'],
+    [0, 8, 'expense', 'Internet', 'utilities', '25000', { fixed_cost_id: 'internet' }],
     // Mes anterior
     [-1, 1, 'expense', 'Alquiler del local', 'rent', '450000'],
     [-1, 10, 'income', 'Ventas del mes', 'sale', '2450000', { payment_method: 'mercado_pago' }],
@@ -70,6 +70,7 @@ function seedMovements(): MovementRow[] {
   return seeds.map(([offset, day, kind, concept, category, amount, extra], i) => ({
     id: `mov-${i}`, kind, occurred_on: demoDate(offset, day), concept, category, amount,
     product_id: null, payment_method: null, supplier: null, notes: null,
+    fixed_cost_id: null, ingredient_id: null, ingredient_qty: null, ingredient_unit: null,
     created_at: daysAgo(30 - i), ...extra,
   }));
 }
@@ -78,11 +79,16 @@ function seed() {
   const s = DEMO_SNAPSHOT;
   const ingredients: IngredientRow[] = s.ingredients.map((i) => ({
     id: i.id, name: i.name, supplier: SUPPLIERS[i.id] ?? null, purchase_unit: i.purchaseUnit,
-    purchase_qty: str(i.purchaseQty), purchase_price: str(i.purchasePrice), price_updated_at: now(), notes: null, archived_at: null,
+    purchase_qty: str(i.purchaseQty), purchase_price: str(i.purchasePrice), waste_pct: '0', price_updated_at: now(), notes: null, archived_at: null,
   }));
+  // Ejemplo de merma: de 1 kg de frutillas quedan 800 g limpias (no se usa en productos: no cambia los totales).
+  ingredients.push({
+    id: 'frutillas', name: 'Frutillas', supplier: 'Verdulería Don José', purchase_unit: 'kg', purchase_qty: '1', purchase_price: '4000',
+    waste_pct: '0.2', price_updated_at: now(), notes: 'Se pierde el cabito y las golpeadas.', archived_at: null,
+  });
   const products: ProductRow[] = s.products.map((p) => ({
     id: p.id, name: p.name, category: p.category ?? null, price: p.price === null ? null : str(p.price),
-    monthly_units_estimate: Number(p.monthlyUnits), target_margin: p.targetMargin === null ? null : str(p.targetMargin),
+    monthly_units_estimate: Number(p.monthlyUnits), batch_yield: '1', target_margin: p.targetMargin === null ? null : str(p.targetMargin),
     notes: null, archived_at: null, price_updated_at: now(),
     product_components: p.components.map((c, idx): ComponentRow => ({
       id: c.id, kind: c.kind,
@@ -93,8 +99,17 @@ function seed() {
       fixed_amount: c.kind === 'other' ? str(c.amount) : null,
       label: c.kind === 'other' ? c.label : null,
       position: idx + 1,
+      basis: 'batch',
     })),
   }));
+  // Ejemplo de receta por tanda: el alfajor se carga como tanda de 48 (mismo costo por unidad).
+  const alfajor = products.find((p) => p.id === 'alfajor')!;
+  alfajor.batch_yield = '48';
+  for (const c of alfajor.product_components) {
+    if (c.kind === 'packaging') c.basis = 'unit';
+    else if (c.kind === 'labor') { c.quantity = '6.4'; c.unit = 'h'; }
+    else if (c.quantity) c.quantity = str(Number(c.quantity) * 48);
+  }
   return {
     ingredients,
     laborRates: s.laborRates.map((r): LaborRateRow => ({ id: r.id, name: r.name, hourly_rate: str(r.hourlyRate), is_default: true })),

@@ -11,7 +11,7 @@ import { useCurrentBusiness } from '@/features/business/business-provider';
 import { useBusinessModel } from '@/features/business/use-business-model';
 import { dec } from '@/domain/finance';
 import { formatDate, formatMoney, formatNumber, formatPercent, formatUnitCost, PURCHASE_UNITS, UNIT_LABELS } from '@/lib/format';
-import { numberToInput } from '@/lib/number-input';
+import { fractionToPercentInput, numberToInput } from '@/lib/number-input';
 import {
   createIngredient,
   deleteIngredient,
@@ -48,12 +48,17 @@ export function IngredientSheet({ ingredient, open, usedIn, onClose }: Props) {
           purchaseUnit: ingredient.purchase_unit,
           purchaseQty: numberToInput(ingredient.purchase_qty),
           purchasePrice: numberToInput(ingredient.purchase_price),
+          wastePercent: Number(ingredient.waste_pct) > 0 ? fractionToPercentInput(ingredient.waste_pct) : '',
           notes: ingredient.notes ?? '',
         }
-      : { name: '', supplier: '', purchaseUnit: 'kg', purchaseQty: '1', purchasePrice: '', notes: '' },
+      : { name: '', supplier: '', purchaseUnit: 'kg', purchaseQty: '1', purchasePrice: '', wastePercent: '', notes: '' },
   });
-  const [qty, unit, price] = useWatch({ control: form.control, name: ['purchaseQty', 'purchaseUnit', 'purchasePrice'] });
-  const preview = getUnitCostView(qty, unit, price);
+  const [qty, unit, price, wastePercent] = useWatch({
+    control: form.control,
+    name: ['purchaseQty', 'purchaseUnit', 'purchasePrice', 'wastePercent'],
+  });
+  const preview = getUnitCostView(qty, unit, price, wastePercent, true);
+  const originalWaste = ingredient && Number(ingredient.waste_pct) > 0 ? fractionToPercentInput(ingredient.waste_pct) : '';
   const errors = form.formState.errors;
 
   // Cambiar un insumo recalcula productos: se recarga todo lo del negocio.
@@ -67,10 +72,11 @@ export function IngredientSheet({ ingredient, open, usedIn, onClose }: Props) {
     !isNew &&
     (numberToInput(ingredient.purchase_price) !== price ||
       numberToInput(ingredient.purchase_qty) !== qty ||
-      ingredient.purchase_unit !== unit);
+      ingredient.purchase_unit !== unit ||
+      originalWaste !== wastePercent.trim());
   const impactView =
     costChanged && snapshot && preview
-      ? previewIngredientImpact(snapshot, ingredient.id, { purchaseQty: qty, purchaseUnit: unit, purchasePrice: price })
+      ? previewIngredientImpact(snapshot, ingredient.id, { purchaseQty: qty, purchaseUnit: unit, purchasePrice: price, wastePercent })
       : null;
   const hasImpact = Boolean(impactView && impactView.affectedCount > 0 && impactView.direction !== 'none');
 
@@ -192,11 +198,21 @@ export function IngredientSheet({ ingredient, open, usedIn, onClose }: Props) {
                     {formatMoney(preview.perPurchaseUnit, business.currency)} por {UNIT_LABELS[preview.purchaseUnit].singular}
                   </span>
                 )}
+                {preview.usablePerBase && (
+                  <span className="mt-1 block text-sm font-medium text-low">
+                    Con {formatPercent(preview.waste, 1)} de merma: {formatUnitCost(preview.usablePerBase, business.currency)} por{' '}
+                    {UNIT_LABELS[preview.baseUnit].singular} usable
+                  </span>
+                )}
               </p>
             ) : (
               <p className="mt-0.5 text-sm text-muted">Completá cantidad y precio.</p>
             )}
           </Card>
+
+          <Field label="Merma (opcional)" hint={GLOSSARY.waste} error={errors.wastePercent?.message}>
+            {(id, d) => <AffixInput id={id} aria-describedby={d} suffix="%" placeholder="0" aria-invalid={!!errors.wastePercent} {...form.register('wastePercent')} />}
+          </Field>
 
           {costChanged && preview && (
             hasImpact && impactView ? (

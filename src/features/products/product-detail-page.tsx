@@ -46,6 +46,7 @@ export function ProductDetailPage() {
   const laborRateId = laborRates.data?.find((r) => r.is_default)?.id ?? laborRates.data?.[0]?.id ?? null;
   const currency = business.currency;
   const sortedComponents = [...row.product_components].sort((a, b) => a.position - b.position);
+  const byBatch = Number(row.batch_yield) !== 1;
 
   return (
     <>
@@ -73,11 +74,20 @@ export function ProductDetailPage() {
           <Warnings econ={econ} />
 
           <Section
-            title="Qué lleva"
+            title={byBatch ? `Qué lleva (tanda de ${formatNumber(row.batch_yield)} u.)` : 'Qué lleva'}
             action={<Button variant="secondary" size="sm" onClick={() => setEditingComponent('new')}><Plus /> Agregar</Button>}
+            footnote={
+              byBatch && econ.directCost
+                ? `Toda la tanda cuesta ${formatMoney(econ.directCost.batchTotal, currency)} → ${formatMoney(econ.directCost.total, currency)} por unidad. Al lado de cada ingrediente ves lo que le suma a cada unidad.`
+                : undefined
+            }
           >
             {sortedComponents.length === 0 ? (
-              <p className="px-4 py-5 text-sm text-muted">Agregá los insumos, el packaging y los minutos de trabajo que lleva una unidad.</p>
+              <p className="px-4 py-5 text-sm text-muted">
+                {byBatch
+                  ? 'Agregá lo que lleva toda la tanda: insumos, minutos de trabajo y, por unidad, el packaging.'
+                  : 'Agregá los insumos, el packaging y los minutos de trabajo que lleva una unidad.'}
+              </p>
             ) : (
               <ul className="divide-y divide-line">
                 {sortedComponents.map((c) => (
@@ -87,6 +97,7 @@ export function ProductDetailPage() {
                     cost={econ.directCost?.lines.find((l) => l.componentId === c.id)?.cost ?? null}
                     ingredientName={ingredients.data?.find((i) => i.id === c.ingredient_id)?.name}
                     currency={currency}
+                    showBasis={byBatch}
                     onClick={() => setEditingComponent(c)}
                   />
                 ))}
@@ -109,6 +120,7 @@ export function ProductDetailPage() {
           ingredients={ingredients.data ?? []}
           laborRateId={laborRateId}
           snapshot={snapshot}
+          batchYield={row.batch_yield}
           open
           onClose={() => setEditingComponent(null)}
         />
@@ -176,16 +188,18 @@ function Warnings({ econ }: { econ: ProductEconomics }) {
 
 const KIND_ICON = { ingredient: Wheat, packaging: Package, labor: Clock, other: Receipt };
 
-function ComponentLine({ component: c, cost, ingredientName, currency, onClick }: {
+function ComponentLine({ component: c, cost, ingredientName, currency, showBasis, onClick }: {
   component: ComponentRow;
   cost: Dec | null;
   ingredientName?: string;
   currency: string;
+  showBasis: boolean;
   onClick: () => void;
 }) {
   const Icon = KIND_ICON[c.kind];
   const name = c.kind === 'labor' ? 'Mano de obra' : c.kind === 'other' ? c.label ?? 'Otro' : ingredientName ?? 'Insumo';
-  const qty = c.quantity && c.unit ? `${formatNumber(c.quantity, 4)} ${UNIT_LABELS[c.unit].short}` : 'monto fijo';
+  const amount = c.quantity && c.unit ? `${formatNumber(c.quantity, 4)} ${UNIT_LABELS[c.unit].short}` : formatMoney(c.fixed_amount, currency);
+  const qty = showBasis ? `${amount} ${c.basis === 'unit' ? 'por unidad' : 'en la tanda'}` : c.quantity ? amount : 'monto fijo';
   return (
     <li>
       <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas">

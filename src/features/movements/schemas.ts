@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UNIT_CODES } from '@/features/ingredients/schemas';
 import { emptyToNull, localeNumber, optionalText } from '@/lib/form-schemas';
 import { parseLocaleNumber } from '@/lib/number-input';
 
@@ -51,8 +52,16 @@ export const movementRowSchema = z.object({
   supplier: z.string().nullable(),
   notes: z.string().nullable(),
   created_at: z.string(),
+  // Fase 10: vínculos de egresos
+  fixed_cost_id: z.string().nullable().default(null),
+  ingredient_id: z.string().nullable().default(null),
+  ingredient_qty: z.coerce.string().nullable().default(null),
+  ingredient_unit: z.enum(UNIT_CODES).nullable().default(null),
 });
 export type MovementRow = z.infer<typeof movementRowSchema>;
+
+/** Categorías de egreso en las que tiene sentido "es la compra de un insumo". */
+export const PURCHASE_CATEGORIES = ['raw_materials', 'packaging'];
 
 export const movementFormSchema = z
   .object({
@@ -65,17 +74,31 @@ export const movementFormSchema = z
     paymentMethod: z.string(),
     supplier: optionalText(120),
     notes: optionalText(1000),
+    /** Pago de un costo fijo planificado (vacío = sin vínculo). */
+    fixedCostId: z.string(),
+    /** Compra de insumo (vacío = no es una compra de insumo). */
+    purchaseIngredientId: z.string(),
+    purchaseQty: z.string(),
+    purchaseUnit: z.enum(UNIT_CODES),
   })
   .superRefine((v, ctx) => {
     if (!categoriesFor(v.kind).some((c) => c.value === v.category)) {
       ctx.addIssue({ code: 'custom', path: ['category'], message: 'Elegí una categoría.' });
     }
+    if (isPurchase(v)) {
+      const r = localeNumber({ required: '¿Cuánto compraste?', check: (n) => n.gt(0), checkMessage: 'Tiene que ser mayor a 0.' }).safeParse(v.purchaseQty);
+      if (!r.success) ctx.addIssue({ code: 'custom', path: ['purchaseQty'], message: r.error.issues[0]!.message });
+    }
   });
 export type MovementFormValues = z.infer<typeof movementFormSchema>;
+
+export const isPurchase = (v: Pick<MovementFormValues, 'kind' | 'category' | 'purchaseIngredientId'>) =>
+  v.kind === 'expense' && PURCHASE_CATEGORIES.includes(v.category) && v.purchaseIngredientId !== '';
 
 /** Formulario → columnas. Cada tipo solo manda sus campos (la base lo exige). */
 export function toMovementPayload(v: MovementFormValues) {
   const income = v.kind === 'income';
+  const purchase = isPurchase(v);
   return {
     kind: v.kind,
     occurred_on: v.occurredOn,
@@ -86,6 +109,24 @@ export function toMovementPayload(v: MovementFormValues) {
     payment_method: income && v.paymentMethod ? (v.paymentMethod as PaymentMethod) : null,
     supplier: income ? null : emptyToNull(v.supplier),
     notes: emptyToNull(v.notes),
+    fixed_cost_id: !income && v.fixedCostId ? v.fixedCostId : null,
+    ingredient_id: purchase ? v.purchaseIngredientId : null,
+    ingredient_qty: purchase ? parseLocaleNumber(v.purchaseQty)! : null,
+    ingredient_unit: purchase ? v.purchaseUnit : null,
   };
 }
+
+/** Categoría de egreso que corresponde a cada categoría de costo fijo. */
+export const EXPENSE_CATEGORY_FOR_FIXED: Record<string, string> = {
+  rent: 'rent',
+  salaries: 'salaries',
+  accounting: 'other',
+  internet: 'utilities',
+  software: 'software',
+  insurance: 'other',
+  utilities: 'utilities',
+  advertising: 'advertising',
+  transport: 'transport',
+  other: 'other',
+};
 export type MovementPayload = ReturnType<typeof toMovementPayload>;

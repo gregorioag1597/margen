@@ -96,7 +96,7 @@ export function buildBusinessModel(snapshot: BusinessSnapshot): BusinessModel {
   const direct = snapshot.products.map((product) => ({
     product,
     units: nonNegative(product.monthlyUnits),
-    cost: calculateProductDirectCost(product.components, lookup),
+    cost: calculateProductDirectCost(product.components, lookup, product.batchYield ?? 1),
   }));
 
   // 2. Asignación estimada de fijos (no depende del precio)

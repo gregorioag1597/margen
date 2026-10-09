@@ -14,7 +14,12 @@ export interface Ingredient {
   purchaseUnit: UnitCode;
   purchaseQty: DecimalInput;
   purchasePrice: DecimalInput;
+  /** Merma: fracción que se pierde (0.2 = 20 %). Opcional, 0 por defecto. */
+  wastePct?: DecimalInput;
 }
+
+/** "batch" = la cantidad es de toda la tanda; "unit" = de cada unidad. */
+export type ComponentBasis = 'batch' | 'unit';
 
 export interface LaborRate {
   id: string;
@@ -22,7 +27,7 @@ export interface LaborRate {
   hourlyRate: DecimalInput;
 }
 
-export type ProductComponent =
+export type ProductComponent = (
   | {
       id: string;
       kind: 'ingredient' | 'packaging';
@@ -41,9 +46,13 @@ export type ProductComponent =
       id: string;
       kind: 'other';
       label: string;
-      /** Monto directo por unidad de producto. */
+      /** Monto directo (de la tanda o de la unidad, según `basis`). */
       amount: DecimalInput;
-    };
+    }
+) & {
+  /** Por defecto "batch". Con rinde 1, "batch" y "unit" dan lo mismo. */
+  basis?: ComponentBasis;
+};
 
 export interface Product {
   id: string;
@@ -55,6 +64,8 @@ export interface Product {
   monthlyUnits: DecimalInput;
   /** Fracción (0.30 = 30 %). null = usa el default del negocio. */
   targetMargin: DecimalInput | null;
+  /** Unidades que rinde una tanda. Opcional, 1 por defecto. */
+  batchYield?: DecimalInput;
   components: ProductComponent[];
 }
 

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Plus, Receipt, Trash2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Plus, Receipt, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,14 @@ import { AffixInput, Field, Input, Select, Textarea } from '@/components/ui/form
 import { Badge, Banner, Card, EmptyState, ListSkeleton, MobileAction, Sheet } from '@/components/ui/surfaces';
 import { dataErrorMessage, GLOSSARY } from '@/copy/messages';
 import { useCurrentBusiness } from '@/features/business/business-provider';
-import { dec, sum } from '@/domain/finance';
+import { currentMonth, dec, fixedCostsPlanVsActual, sum } from '@/domain/finance';
+import { listMovements } from '@/features/movements/api';
+import { MovementSheet } from '@/features/movements/movement-sheet';
+import { EXPENSE_CATEGORY_FOR_FIXED } from '@/features/movements/schemas';
 import { formatMoney } from '@/lib/format';
 import { numberToInput } from '@/lib/number-input';
 import { queryKeys } from '@/lib/query-keys';
+import { cn } from '@/lib/utils';
 import { deleteFixedCost, listFixedCosts, saveFixedCost, setFixedCostActive } from './api';
 import { FIXED_COST_CATEGORIES, fixedCostFormSchema, toFixedCostPayload, type FixedCostFormValues, type FixedCostRow } from './schemas';
 
@@ -21,7 +25,18 @@ export function FixedCostsSection() {
   const business = useCurrentBusiness();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<FixedCostRow | 'new' | null>(null);
+  const [paying, setPaying] = useState<FixedCostRow | null>(null);
   const costs = useQuery({ queryKey: queryKeys.fixedCosts(business.id), queryFn: () => listFixedCosts(business.id) });
+
+  // Pagos reales del mes vinculados a cada costo fijo (planificado vs pagado).
+  const month = currentMonth();
+  const movements = useQuery({ queryKey: queryKeys.movements(business.id, month), queryFn: () => listMovements(business.id, month) });
+  const plan = fixedCostsPlanVsActual(
+    (costs.data ?? []).map((c) => ({ id: c.id, name: c.name, monthlyAmount: c.monthly_amount, isActive: c.is_active })),
+    (movements.data ?? []).filter((m) => m.kind === 'expense').map((m) => ({ fixedCostId: m.fixed_cost_id, amount: m.amount })),
+  );
+  const planById = new Map(plan.items.map((i) => [i.fixedCostId, i]));
+  const monthName = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(new Date());
 
   const toggle = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => setFixedCostActive(id, active),
@@ -34,9 +49,23 @@ export function FixedCostsSection() {
   return (
     <>
       <Card className="mb-4 p-5">
-        <p className="text-sm text-muted">Costos fijos mensuales</p>
+        <p className="text-sm text-muted">Costos fijos mensuales (planificado)</p>
         <p className="mt-1 text-3xl font-semibold tracking-tight tabular">{formatMoney(total, business.currency)}</p>
         <p className="mt-2 text-[13px] leading-snug text-muted">{GLOSSARY.fixedCosts}</p>
+        {plan.items.length > 0 && (
+          <div className="mt-4 border-t border-line pt-3" aria-label={`Pagos de ${monthName}`}>
+            <p className="text-sm">
+              <span className="font-medium first-letter:uppercase">En {monthName}</span> pagaste{' '}
+              <strong className="tabular">{formatMoney(plan.paid, business.currency)}</strong> de {formatMoney(plan.planned, business.currency)}.
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas" aria-hidden>
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, plan.planned.isZero() ? 0 : plan.paid.div(plan.planned).times(100).toNumber())}%` }} />
+            </div>
+            {plan.pending.length > 0 && (
+              <p className="mt-2 text-[13px] text-muted">Falta registrar: {plan.pending.map((p) => p.name).join(', ')}.</p>
+            )}
+          </div>
+        )}
       </Card>
 
       {costs.isPending ? (
@@ -49,23 +78,41 @@ export function FixedCostsSection() {
         </EmptyState>
       ) : (
         <ul className="space-y-2">
-          {costs.data.map((c) => (
-            <li key={c.id}>
-              <Card className={c.is_active ? '' : 'opacity-60'}>
-                <div className="flex items-center gap-3 p-4">
-                  <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setEditing(c)}>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{c.name}</p>
-                      <p className="text-[13px] text-muted">{categoryLabel(c.category)}{!c.is_active && ' · pausado'}</p>
+          {costs.data.map((c) => {
+            const p = planById.get(c.id);
+            return (
+              <li key={c.id}>
+                <Card className={c.is_active ? '' : 'opacity-60'}>
+                  <div className="flex items-center gap-3 p-4">
+                    <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setEditing(c)}>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{c.name}</p>
+                        <p className="text-[13px] text-muted">{categoryLabel(c.category)}{!c.is_active && ' · pausado'}</p>
+                      </div>
+                      <p className="font-semibold tabular">{formatMoney(c.monthly_amount, business.currency)}</p>
+                      <ChevronRight className="size-4 text-muted" aria-hidden />
+                    </button>
+                    <ActiveToggle active={c.is_active} onChange={(active) => toggle.mutate({ id: c.id, active })} label={c.name} />
+                  </div>
+                  {p && (
+                    <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5">
+                      {p.status === 'pending' ? (
+                        <span className="text-[13px] text-muted">Sin pago registrado en {monthName}</span>
+                      ) : (
+                        <span className={cn('flex items-center gap-1.5 text-[13px] font-medium', p.status === 'over' ? 'text-low' : 'text-healthy')}>
+                          <CheckCircle2 className="size-4" aria-hidden />
+                          {p.status === 'partial' ? 'Pagado en parte' : p.status === 'over' ? 'Pagado (de más)' : 'Pagado'} {formatMoney(p.paid, business.currency)}
+                        </span>
+                      )}
+                      {p.status !== 'paid' && p.status !== 'over' && (
+                        <Button variant="secondary" size="sm" onClick={() => setPaying(c)}>Registrar pago</Button>
+                      )}
                     </div>
-                    <p className="font-semibold tabular">{formatMoney(c.monthly_amount, business.currency)}</p>
-                    <ChevronRight className="size-4 text-muted" aria-hidden />
-                  </button>
-                  <ActiveToggle active={c.is_active} onChange={(active) => toggle.mutate({ id: c.id, active })} label={c.name} />
-                </div>
-              </Card>
-            </li>
-          ))}
+                  )}
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -73,6 +120,24 @@ export function FixedCostsSection() {
       <MobileAction>{addButton}</MobileAction>
 
       <FixedCostSheet key={editing === 'new' ? 'new' : editing?.id ?? 'closed'} cost={editing === 'new' ? null : editing} open={editing !== null} onClose={() => setEditing(null)} />
+      {paying && (
+        <MovementSheet
+          movement={null}
+          initialKind="expense"
+          prefill={{
+            kind: 'expense',
+            concept: `${paying.name} · ${monthName}`,
+            category: EXPENSE_CATEGORY_FOR_FIXED[paying.category] ?? 'other',
+            amount: numberToInput(planById.get(paying.id)?.status === 'partial'
+              ? planById.get(paying.id)!.planned.minus(planById.get(paying.id)!.paid).toString()
+              : paying.monthly_amount),
+            fixedCostId: paying.id,
+          }}
+          linkNote={`Pago de: ${paying.name} · planificado ${formatMoney(paying.monthly_amount, business.currency)}`}
+          open
+          onClose={() => setPaying(null)}
+        />
+      )}
     </>
   );
 }
