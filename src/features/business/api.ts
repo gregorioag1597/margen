@@ -34,6 +34,14 @@ export async function createBusiness(input: {
   currency: string;
   pricesIncludeTaxes?: boolean | null;
 }): Promise<string> {
+  if (isDemoMode()) {
+    return demoApi.createBusiness({
+      name: input.name.trim(),
+      business_type: input.businessType,
+      currency: input.currency,
+      prices_include_taxes: input.pricesIncludeTaxes ?? null,
+    });
+  }
   const id = unwrapResponse(
     await supabase.rpc('create_business', {
       p_name: input.name,
@@ -53,6 +61,17 @@ export async function updateBusiness(
   id: string,
   patch: Partial<{ name: string; business_type: BusinessType; currency: string; prices_include_taxes: boolean | null }>,
 ): Promise<void> {
-  if (isDemoMode()) throw new DataError('En la demo no se pueden cambiar los datos del negocio.', 'DEMO');
-  unwrapResponse(await supabase.from('businesses').update(patch).eq('id', id).select('id'));
+  if (isDemoMode()) return demoApi.updateBusiness(id, patch);
+  const rows = unwrapResponse(await supabase.from('businesses').update(patch).eq('id', id).select('id'));
+  if (!rows || (rows as unknown[]).length === 0) throw new DataError('Solo el dueño puede editar el negocio.', '42501');
+}
+
+/**
+ * Elimina el negocio con TODOS sus datos (insumos, productos, costos,
+ * movimientos…): la base los borra en cascada. Solo el dueño puede (RLS).
+ */
+export async function deleteBusiness(id: string): Promise<void> {
+  if (isDemoMode()) return demoApi.deleteBusiness(id);
+  const rows = unwrapResponse(await supabase.from('businesses').delete().eq('id', id).select('id'));
+  if (!rows || (rows as unknown[]).length === 0) throw new DataError('Solo el dueño puede eliminar el negocio.', '42501');
 }

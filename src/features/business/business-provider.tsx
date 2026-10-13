@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/auth-provider';
+import { isDemoMode } from '@/lib/demo-mode';
+import { selectDemoBusiness } from '@/lib/demo-store';
 import { listBusinesses, type Business } from './api';
 
 const STORAGE_KEY = 'margen.currentBusinessId';
@@ -40,6 +42,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   // Por defecto: el último elegido; si no, el primer negocio real (no demo).
   const current =
     businesses.find((b) => b.id === storedId) ?? businesses.find((b) => !b.is_demo) ?? businesses[0] ?? null;
+
+  // Demo: cada negocio tiene su propia base en memoria; se activa antes de que
+  // las pantallas pidan datos (es idempotente, por eso puede ir en el render).
+  if (current && isDemoMode()) selectDemoBusiness(current.id);
 
   const setCurrentId = useCallback((id: string) => {
     setStoredId(id);

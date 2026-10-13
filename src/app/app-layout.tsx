@@ -1,8 +1,8 @@
 import { ArrowLeftRight, Calculator, ChevronRight, Home, Menu, Package, Settings, Wallet, Wheat } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
-import { Badge, Sheet } from '@/components/ui/surfaces';
-import { useCurrentBusiness } from '@/features/business/business-provider';
+import { Sheet } from '@/components/ui/surfaces';
+import { BusinessSwitcher } from '@/features/business/business-switcher';
 import { exitDemoMode, isDemoMode } from '@/lib/demo-mode';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
@@ -26,7 +26,6 @@ const NAV = [...PRIMARY, ...SECONDARY];
 
 /** Mobile: barra inferior + "Más". Desktop: barra lateral con todo. */
 export function AppLayout() {
-  const business = useCurrentBusiness();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const inSecondary = SECONDARY.some((n) => location.pathname.startsWith(n.to));
@@ -36,7 +35,7 @@ export function AppLayout() {
       {/* Sidebar desktop */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 md:flex">
         <Logo className="mb-6 px-3" />
-        <BusinessLabel name={business.name} isDemo={business.is_demo} className="mb-4 px-3" />
+        <BusinessSwitcher className="mb-4 w-full" />
         <nav className="space-y-1" aria-label="Principal">
           {NAV.map(({ to, label, icon: Icon, ...rest }) => (
             <NavLink
@@ -64,7 +63,7 @@ export function AppLayout() {
             <Logo />
           </div>
           <div className="flex items-center gap-1">
-            <BusinessLabel name={business.name} isDemo={business.is_demo} className="max-w-36 text-right" />
+            <BusinessSwitcher className="max-w-44" align="right" />
             <NavLink to="/configuracion" aria-label="Configuración" className="rounded-full p-2 text-muted hover:bg-canvas">
               <Settings className="size-5" />
             </NavLink>
@@ -132,15 +131,6 @@ export function AppLayout() {
           ))}
         </ul>
       </Sheet>
-    </div>
-  );
-}
-
-function BusinessLabel({ name, isDemo, className }: { name: string; isDemo: boolean; className?: string }) {
-  return (
-    <div className={cn('min-w-0', className)}>
-      <p className="truncate text-sm font-medium">{name}</p>
-      {isDemo && <Badge tone="low">Datos de prueba</Badge>}
     </div>
   );
 }

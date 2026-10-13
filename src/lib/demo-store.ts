@@ -135,11 +135,36 @@ function seed() {
   };
 }
 
-let db = seed();
+type Db = ReturnType<typeof seed>;
+
+const emptyDb = (): Db => ({
+  ingredients: [], laborRates: [], products: [], fixedCosts: [], variableCosts: [],
+  ingredientHistory: [], productHistory: [], scenarios: [], movements: [],
+});
+
+/**
+ * Cada negocio de la demo tiene su propia "base" en memoria, igual que en
+ * Supabase cada negocio tiene sus datos separados. `db` apunta al negocio activo.
+ */
+let businesses: Business[] = [clone(DEMO_BUSINESS)];
+let stores = new Map<string, Db>([[DEMO_BUSINESS.id, seed()]]);
+let currentId = DEMO_BUSINESS.id;
+let db: Db = stores.get(currentId)!;
+
+/** La app avisa qué negocio está activo; todas las operaciones usan sus datos. */
+export function selectDemoBusiness(id: string) {
+  const store = stores.get(id);
+  if (store) {
+    currentId = id;
+    db = store;
+  }
+}
 
 /** Solo para tests. */
 export function resetDemoStore() {
-  db = seed();
+  businesses = [clone(DEMO_BUSINESS)];
+  stores = new Map([[DEMO_BUSINESS.id, seed()]]);
+  selectDemoBusiness(DEMO_BUSINESS.id);
 }
 
 const find = <T extends { id: string }>(rows: T[], id: string): T => {
@@ -169,8 +194,22 @@ type Patch<T> = Partial<Record<keyof T, unknown>>;
 
 /** Misma interfaz que las funciones de api.ts de cada sección. */
 export const demoApi = {
-  // Negocio
-  listBusinesses: async () => [clone(DEMO_BUSINESS)],
+  // Negocios
+  listBusinesses: async () => clone(businesses),
+  createBusiness: async (input: { name: string; business_type: Business['business_type']; currency: string; prices_include_taxes: boolean | null }) => {
+    const business: Business = { ...input, id: uid(), default_target_margin: '0.3', settings: {}, is_demo: false };
+    businesses.push(business);
+    stores.set(business.id, emptyDb());
+    return business.id;
+  },
+  updateBusiness: async (id: string, patch: Partial<Business>) => {
+    Object.assign(find(businesses, id), patch);
+  },
+  deleteBusiness: async (id: string) => {
+    find(businesses, id);
+    businesses = businesses.filter((b) => b.id !== id);
+    stores.delete(id);
+  },
 
   // Insumos
   listIngredients: async () => clone([...db.ingredients].sort((a, b) => a.name.localeCompare(b.name))),
@@ -288,6 +327,7 @@ export const demoApi = {
       }
     } catch (e) {
       db = backup;
+      stores.set(currentId, backup);
       throw e;
     }
     db.scenarios.push({ id: uid(), name, created_at: now(), changes: items, status: 'applied' });
