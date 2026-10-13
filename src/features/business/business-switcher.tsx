@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Plus, Store } from 'lucide-react';
+import { Check, ChevronsUpDown, Pencil, Plus, Store } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ export function BusinessSwitcher({ className, align = 'left' }: { className?: st
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const choose = (id: string) => {
     setOpen(false);
@@ -50,9 +51,14 @@ export function BusinessSwitcher({ className, align = 'left' }: { className?: st
         onClose={() => setOpen(false)}
         title="Tus negocios"
         footer={
-          <Button size="lg" block variant="secondary" onClick={() => { setOpen(false); setCreating(true); }}>
-            <Plus /> Agregar negocio
-          </Button>
+          <div className="space-y-2">
+            <Button size="lg" block variant="outline" onClick={() => { setOpen(false); setEditing(true); }}>
+              <Pencil /> Editar este negocio
+            </Button>
+            <Button size="lg" block variant="secondary" onClick={() => { setOpen(false); setCreating(true); }}>
+              <Plus /> Agregar negocio
+            </Button>
+          </div>
         }
       >
         <ul className="space-y-2" aria-label="Elegí un negocio">
@@ -86,6 +92,7 @@ export function BusinessSwitcher({ className, align = 'left' }: { className?: st
       </Sheet>
 
       {creating && <BusinessSheet business={null} open onClose={() => setCreating(false)} />}
+      {editing && <BusinessSheet business={business} open onClose={() => setEditing(false)} />}
     </>
   );
 }

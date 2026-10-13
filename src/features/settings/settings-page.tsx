@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight, FlaskConical, LogOut, Plus, Store } from 'lucide-react';
+import { Check, FlaskConical, LogOut, Pencil, Plus, Store } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -113,23 +113,26 @@ function BusinessesCard() {
         {businesses.map((b) => {
           const active = b.id === current.id;
           return (
-            <li key={b.id} className={cn('flex items-center gap-3 rounded-xl border p-3', active ? 'border-brand-500 bg-brand-50/60' : 'border-line')}>
-              <Store className="size-5 shrink-0 text-brand-600" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2">
-                  <span className="truncate font-medium">{b.name}</span>
-                  {b.is_demo && <Badge tone="low">Prueba</Badge>}
-                </p>
-                <p className="text-[13px] text-muted">{businessTypeLabel(b.business_type)} · {b.currency}</p>
+            <li key={b.id} className={cn('rounded-xl border p-3', active ? 'border-brand-500 bg-brand-50/60' : 'border-line')}>
+              <div className="flex items-center gap-3">
+                <Store className="size-5 shrink-0 text-brand-600" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2">
+                    <span className="truncate font-medium">{b.name}</span>
+                    {b.is_demo && <Badge tone="low">Prueba</Badge>}
+                  </p>
+                  <p className="text-[13px] text-muted">{businessTypeLabel(b.business_type)} · {b.currency}</p>
+                </div>
+                {active && <span className="flex items-center gap-1 text-[13px] font-medium text-brand-700"><Check className="size-4" /> Activo</span>}
               </div>
-              {active ? (
-                <span className="flex items-center gap-1 text-[13px] font-medium text-brand-700"><Check className="size-4" /> Activo</span>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => { setCurrentId(b.id); navigate('/'); }}>Usar</Button>
-              )}
-              <button type="button" onClick={() => setEditing(b)} aria-label={`Editar ${b.name}`} className="rounded-lg p-2 text-muted hover:bg-canvas hover:text-ink">
-                <ChevronRight className="size-4" />
-              </button>
+              <div className="mt-3 flex gap-2 pl-8">
+                <Button variant="outline" size="sm" onClick={() => setEditing(b)} aria-label={`Editar ${b.name}`}>
+                  <Pencil /> Editar nombre y datos
+                </Button>
+                {!active && (
+                  <Button variant="secondary" size="sm" onClick={() => { setCurrentId(b.id); navigate('/'); }}>Usar este</Button>
+                )}
+              </div>
             </li>
           );
         })}
