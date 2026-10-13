@@ -16,6 +16,7 @@ export const queryKeys = {
   products: (businessId: string) => ['products', businessId] as const,
   productHistory: (productId: string) => ['product-history', productId] as const,
   movements: (businessId: string, month: string) => ['movements', businessId, month] as const,
+  movementsSeries: (businessId: string, fromMonth: string, toMonth: string) => ['movements-series', businessId, fromMonth, toMonth] as const,
 };
 
 /**

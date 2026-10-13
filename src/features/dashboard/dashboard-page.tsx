@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight, Circle, Target } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { AffixInput, Segmented } from '@/components/ui/form';
-import { Banner, Card, ListSkeleton, PageHeader } from '@/components/ui/surfaces';
+import { Banner, Card, ListSkeleton, PageHeader, Skeleton } from '@/components/ui/surfaces';
 import { dataErrorMessage, financeErrorMessage, GLOSSARY } from '@/copy/messages';
 import { useCurrentBusiness } from '@/features/business/business-provider';
 import { useBusinessModel } from '@/features/business/use-business-model';
@@ -18,6 +18,8 @@ import { parseLocaleDecimal } from '@/lib/number-input';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { buildDashboard, buildProfitGoal, type DashboardView } from './dashboard-view';
+
+const MonthlyCharts = lazy(() => import('./monthly-charts'));
 
 export function DashboardPage() {
   const business = useCurrentBusiness();
@@ -133,6 +135,11 @@ function RealMonth() {
           </>
         )
       )}
+
+      {/* Gráficos mes a mes: la librería se descarga recién acá. */}
+      <Suspense fallback={<Skeleton className="h-72" />}>
+        <MonthlyCharts />
+      </Suspense>
     </section>
   );
 }

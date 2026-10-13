@@ -66,6 +66,18 @@ function seedMovements(): MovementRow[] {
     [-1, 10, 'income', 'Ventas del mes', 'sale', '2450000', { payment_method: 'mercado_pago' }],
     [-1, 12, 'expense', 'Insumos del mes', 'raw_materials', '610000'],
     [-1, 20, 'expense', 'Contador', 'other', '60000'],
+    // Historia de 6 meses para los gráficos (un mes flojo y uno con pérdida)
+    ...([
+      [-2, '2180000', '1290000'],
+      [-3, '1950000', '1240000'],
+      [-4, '1420000', '1510000'],
+      [-5, '1680000', '1180000'],
+    ] as const).flatMap(([offset, income, insumos]): Seed[] => [
+      [offset, 1, 'expense', 'Alquiler del local', 'rent', '420000'],
+      [offset, 10, 'income', 'Ventas del mes', 'sale', income, { payment_method: 'mercado_pago' }],
+      [offset, 12, 'expense', 'Insumos del mes', 'raw_materials', String(Number(insumos) - 420000)],
+      [offset, 20, 'expense', 'Contador', 'other', '60000'],
+    ]),
   ];
   return seeds.map(([offset, day, kind, concept, category, amount, extra], i) => ({
     id: `mov-${i}`, kind, occurred_on: demoDate(offset, day), concept, category, amount,

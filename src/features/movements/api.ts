@@ -12,6 +12,15 @@ const COLUMNS =
 /** Movimientos de un mes ('YYYY-MM'), del más nuevo al más viejo. */
 export async function listMovements(businessId: string, month: string): Promise<MovementRow[]> {
   const { from, to } = monthRange(month);
+  return listMovementsBetween(businessId, from, to);
+}
+
+/** Movimientos de varios meses: desde el primer día de `fromMonth` hasta el último de `toMonth`. */
+export async function listMovementsForMonths(businessId: string, fromMonth: string, toMonth: string): Promise<MovementRow[]> {
+  return listMovementsBetween(businessId, monthRange(fromMonth).from, monthRange(toMonth).to);
+}
+
+async function listMovementsBetween(businessId: string, from: string, to: string): Promise<MovementRow[]> {
   const rows = isDemoMode()
     ? await demoApi.listMovements(from, to)
     : unwrapResponse(

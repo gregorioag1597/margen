@@ -86,4 +86,7 @@ Caso de control: D = 4.200, p = 6,39 %, A = 0, m = 30 % → 4.200 ÷ 0,6361 = **
     - Compra de insumo: `movements.ingredient_*` + `priceForPresentation()` → ofrece actualizar el insumo con la pantalla de impacto.
     - Exportar CSV para Excel es-AR (`;`, coma decimal, BOM, anti-fórmulas) y app instalable (vite-plugin-pwa, íconos en `public/`, `scripts/generate-icons.ts`).
 
+11. Varios negocios ✅ — agregar, cambiar (selector en header/sidebar), editar y eliminar (confirmación escribiendo el nombre). Nunca se consolidan: la app muestra un negocio por vez. Demo: una base en memoria por negocio (`selectDemoBusiness`).
+12. Gráficos mes a mes ✅ — Resumen → "Mes a mes" (6/12 meses, tabla alternativa). `buildMonthlySeries()` exacto; Recharts cargado bajo demanda. Paleta validada con dataviz: ingresos #1f8a6d, egresos #5b6fd6, resultado línea #17201d en el mismo eje.
+
 Antes de cada fase: resumen de lo que se construye y archivos principales; se espera aprobación.
